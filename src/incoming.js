@@ -3,6 +3,19 @@ import LRU from 'lru-cache'
 import Users from './users'
 import outgoing from './outgoing'
 import _ from 'lodash'
+import {DatabaseHelpers} from 'botpress'
+let knex = null
+
+function initialize(k) {
+  knex = k;
+  if (!knex) {
+    throw new Error(`DB not initialized`)
+  }
+  return DatabaseHelpers(knex).createTableIfNotExists('checkbox_ref_id', function(table) {
+    table.string('ref_id')
+    table.string('user_id')
+  }).then(() => console.log(`This is for debugging only. . . Table created`))
+}
 
 module.exports = (bp, messenger) => {
 
@@ -173,7 +186,21 @@ module.exports = (bp, messenger) => {
   })
 
   messenger.on('optin', e => {
-    preprocessEvent(e)
+    //initilize DB to store our user ref_id
+
+    bp.db.get()
+    .then(knx => initialize(bp))
+
+    if (e.optin.user_ref) {
+
+      (async () => {
+        const knx = await bp.db.get
+        const insert = await knx('checkbox_ref_id').insert({ref_id: e.optin.user_ref});
+      })()
+      //preventing it from getting sent to the middleware first
+      return bp.messenger.sendText('It"s from the checkbox plugin')
+    } else if (!e.optin.user_ref){
+      preprocessEvent(e)
     .then(profile => {
       bp.middlewares.sendIncoming({
         platform: 'facebook',
@@ -183,6 +210,7 @@ module.exports = (bp, messenger) => {
         raw: e
       })
     })
+    }
   })
 
   messenger.on('referral', e => {
